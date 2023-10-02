@@ -1,0 +1,2 @@
+error queue vs exception queue
+todo: useragent if no useragent

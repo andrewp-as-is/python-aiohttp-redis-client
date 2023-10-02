@@ -14,7 +14,7 @@ REDIS_PORT = os.getenv('REDIS_PORT',6379)
 REDIS_DB = os.getenv('REDIS_DB',0)
 REQUEST_QUEUE = os.getenv('REDIS_REQUEST_QUEUE','request')
 RESPONSE_QUEUE = os.getenv('REDIS_RESPONSE_QUEUE','response')
-ERROR_QUEUE = os.getenv('REDIS_ERROR_QUEUE','error')
+EXCEPTION_QUEUE = os.getenv('EXCEPTION_QUEUE','exception')
 
 CONNECTOR_LIMIT = int(os.getenv('AIOHTTP_CONNECTOR_LIMIT',100))
 CONNECTOR_LIMIT_PER_HOST = int(os.getenv('AIOHTTP_CONNECTOR_LIMIT_PER_HOST',100))
@@ -29,35 +29,25 @@ async def worker(session):
         while time.time()<RESTART_AT:
             s = REDIS_CLIENT.lpop(REQUEST_QUEUE)
             if s:
-                data = json.loads(s.decode('utf-8'))
-                print('data: %s' % data)
-                print('worker test1')
-                url = data['url']
-                kwargs = {
-                    'url':data['url'],
-                    'method':data['method'],
-                    'headers':data['headers'],
-                    'data':data['data'],
-                    'allow_redirects':data['allow_redirects'],
-                    'disk_path':data['disk_path']
-                }
-                print('worker test2')
-                task = make_request(session, **kwargs)
+                request_data = json.loads(s.decode('utf-8'))
+                print('data: %s' % request_data)
+                task = make_request(session, request_data)
                 result = await asyncio.gather(task,return_exceptions=True)
-                print('result: %s' % result)
-                timestamp = int(time.time())
+                data =dict(
+                    request = request_data,
+                    timestamp = int(time.time())
+                )
                 if isinstance(result,Exception):
-                    e = result
-                    q_element = json.dumps(dict(
-                        url=url,
-                        exc_type=type(e),
-                        exc_message=str(e),
-                        timestamp = timestamp
-                    ))
-                    REDIS_CLIENT.rpush(ERROR_QUEUE,q_element)
+                    queue = EXCEPTION_QUEUE
+                    data.update(exc_type=type(result),exc_message=str(result))
                 else:
-                    data['status'] = result
-                    REDIS_CLIENT.rpush(RESPONSE_QUEUE,json.loads(data))
+                    queue = RESPONSE_QUEUE
+                    data.update(
+                        url = result.url,
+                        status = result.status,
+                        headers = dict(result.headers)
+                    )
+                REDIS_CLIENT.rpush(queue,json.loads(data))
             else:
                 await asyncio.sleep(0.1)
     except Exception as e:
