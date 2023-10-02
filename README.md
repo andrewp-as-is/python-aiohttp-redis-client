@@ -5,9 +5,9 @@ Variable|default
 `REDIS_HOST`|`localhost`
 `REDIS_PORT`|`6379`
 `REDIS_DB`|`0`
-`REQUEST_QUEUE`|`request`
-`RESPONSE_QUEUE`|`response`
-`ERROR_QUEUE`|`error`
+`REDIS_REQUEST_QUEUE`|`request`
+`REDIS_RESPONSE_QUEUE`|`response`
+`REDIS_EXCEPTION_QUEUE`|`exception`
 
 
 ### Redis
@@ -50,13 +50,13 @@ for q_element in q_element_list:
     data = json.loads(q_element.encode('utf-8'))
 ```
 
-### Error
+### Exception
 
 pull from redis queue
 ```python
-ERROR_QUEUE ='error'
+EXCEPTION_QUEUE ='exception'
 
-q_element_list = REDIS_CLIENT.lrange(ERROR_QUEUE,0,-1)
+q_element_list = REDIS_CLIENT.lrange(EXCEPTION_QUEUE,0,-1)
 for q_element in q_element_list:
     data = json.loads(q_element.encode('utf-8'))
 ```
